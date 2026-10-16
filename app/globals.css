@@ -1,0 +1,98 @@
+@import "tailwindcss";
+:root {
+  color-scheme: light;
+}
+body {
+  margin: 0;
+  background: #f7f8f5;
+  color: #183830;
+  font-family: Arial, Helvetica, sans-serif;
+}
+button,
+a,
+input,
+select {
+  outline-offset: 4px;
+}
+button,
+a {
+  touch-action: manipulation;
+}
+input,
+select {
+  width: 100%;
+  border: 1px solid #d7ded7;
+  border-radius: 10px;
+  padding: 12px;
+  background: white;
+  color: #183830;
+  margin-top: 8px;
+  min-height: 46px;
+}
+label {
+  font-size: 13px;
+  font-weight: 600;
+}
+button {
+  cursor: pointer;
+}
+a {
+  text-decoration: none;
+}
+h1,
+h2,
+h3 {
+  letter-spacing: -0.04em;
+}
+.panel {
+  border: 1px solid #e1e6df;
+  border-radius: 20px;
+  background: white;
+  padding: 24px;
+}
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #62766b;
+}
+.notice {
+  font-size: 12px;
+  line-height: 1.6;
+  background: #edf1e7;
+  border: 1px solid #dfe6d6;
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+svg text {
+  font-family: Arial, sans-serif;
+}
+.status {
+  border-radius: 30px;
+  background: #edf4eb;
+  padding: 5px 10px;
+  font-size: 12px;
+}
+nav button {
+  font-size: 13px;
+}
+main {
+  max-width: 1200px;
+  margin: auto;
+  padding: 40px 24px;
+}
+.muted {
+  color: #718078;
+}
+@media (max-width: 640px) {
+  main {
+    padding: 24px 16px;
+  }
+  .panel {
+    padding: 18px;
+  }
+  h1 {
+    font-size: 38px !important;
+  }
+}
