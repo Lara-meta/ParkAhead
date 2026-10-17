@@ -7,7 +7,7 @@ export function intervalError(start: string, end: string, now = Date.now()) {
   if (!Number.isFinite(s) || !Number.isFinite(e)) return "Enter valid times.";
   if (s <= now) return "Start must be in the future.";
   if (s > now + 30 * 86400000) return "Book up to 30 days ahead.";
-  if (e - s < 1800000) return "Minimum duration is 30 minutes.";
+  if (e - s < 3600000) return "Minimum duration is 60 minutes.";
   if (e - s > 8 * 3600000) return "Maximum duration is 8 hours.";
   return null;
 }
@@ -81,9 +81,9 @@ export function recommend(zones: Zone[], pref: string) {
 export function mallInstant(local: string) {
   return new Date(`${local}:00+08:00`).toISOString();
 }
-export function displayTime(instant: string) {
+export function displayTime(instant: string, timezone = "Asia/Kuala_Lumpur") {
   return new Intl.DateTimeFormat("en-MY", {
-    timeZone: "Asia/Kuala_Lumpur",
+    timeZone: timezone,
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(instant));

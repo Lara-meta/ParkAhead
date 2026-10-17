@@ -21,7 +21,10 @@ export function MetricsPanel({ metrics }: { metrics: DemoMetrics | null }) {
               Math.round(metrics.scheduledMinutesReleased * 10) / 10,
             ],
           ].map(([label, value]) => (
-            <div key={String(label)} className="rounded-xl bg-[#f1f5eb] p-4">
+            <div
+              key={String(label)}
+              className="rounded-xl bg-[var(--surface-muted)] p-4"
+            >
               <dd className="mb-2 text-3xl font-semibold">{value}</dd>
               <dt className="text-xs leading-5 muted">{label}</dt>
             </div>

@@ -85,6 +85,9 @@ export function DemoControls() {
   if (!data)
     return (
       <section className="panel">
+        <Link href="/admin/eligibility" className="mb-4 inline-block underline">
+          Review OKU eligibility
+        </Link>
         <h1 className="mb-5 text-3xl font-semibold">Demo controls</h1>
         {error ? (
           <>
@@ -195,7 +198,10 @@ export function DemoControls() {
           {availability.map((z) => {
             const old = previousAvailability.find((v) => v.zoneId === z.zoneId);
             return (
-              <div key={z.zoneId} className="rounded-xl bg-[#f1f5eb] p-4">
+              <div
+                key={z.zoneId}
+                className="rounded-xl bg-[var(--surface-muted)] p-4"
+              >
                 <p className="font-semibold">{z.zoneName}</p>
                 <p>{z.availableBayCount} bookable standard bays</p>
                 {old && old.availableBayCount !== z.availableBayCount && (
@@ -211,9 +217,11 @@ export function DemoControls() {
       <section className="panel">
         <h2 className="text-2xl font-semibold">Scenario bookings</h2>
         <p className="my-4 text-sm muted">
-          A: Cinema + step-free, start 10:05 MYT. B: no-show, start 09:55,
-          deadline 10:10. Advance five minutes for A; advance past 10:10 for B.
-          C uses B’s released arrival link.
+          After reset, A starts five minutes ahead with Cinema + step-free. B
+          starts five minutes earlier. Stored deadlines use the configured{" "}
+          {data.clock.graceMinutes}-minute grace period. Fixtures cover all four
+          malls, plus additional E/F arrival scenarios. Use each booking’s
+          manual arrival screen for check-in and completion.
         </p>
         <div className="space-y-4">
           {!data.bookings.length && (
@@ -228,7 +236,7 @@ export function DemoControls() {
             >
               <div className="flex flex-wrap justify-between gap-3">
                 <h3 className="font-semibold">
-                  Scenario {b.demo_scenario}
+                  {b.bays.zones.malls.name} · Scenario {b.demo_scenario}
                   {b.demo_rebooking_of
                     ? " · explicit subsequent booking"
                     : ""}{" "}
@@ -242,8 +250,8 @@ export function DemoControls() {
               </p>
               <div className="flex flex-wrap gap-3 text-sm underline">
                 <Link href={"/bookings/" + b.id}>Booking details</Link>
-                <Link href={"/arrival/" + b.check_in_token}>
-                  Open arrival screen
+                <Link href={`/bookings/${b.id}/arrival`}>
+                  Manual arrival fallback
                 </Link>
                 <Link href={"/bookings/" + b.id + "/zone"}>
                   Find my parking zone
@@ -270,11 +278,12 @@ export function DemoControls() {
           Load / reset your fictional scenarios
         </h2>
         <p className="my-3 text-sm muted">
-          Resets the shared demo clock to 15 January 2030, 10:00 MYT. Deletes
-          only fixtures and explicit fixture rebookings owned by your admin
-          account. Other demo bookings keep their data, but share this clock;
-          normal bookings keep real time. Use a dedicated demo environment. A
-          conflict aborts the entire reset.
+          Resets the shared demo clock to 10:00 MYT on its current demo day.
+          Loads A and B fixtures at all four fictional malls. Deletes only
+          fixtures and explicit fixture rebookings owned by your admin account.
+          Other demo bookings keep their data, but share this clock; normal
+          bookings keep real time. Use a dedicated demo environment. A conflict
+          aborts the entire reset.
         </p>
         <label>
           Type RESET to confirm

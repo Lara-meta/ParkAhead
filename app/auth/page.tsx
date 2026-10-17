@@ -6,13 +6,18 @@ export default async function Page({
   searchParams: Promise<{ returnTo?: string }>;
 }) {
   const { returnTo } = await searchParams;
-  const safe =
-    returnTo &&
-    /^\/(?:arrival\/[a-f0-9-]+|bookings\/[a-f0-9-]+(?:\/zone)?|admin\/demo)?$/.test(
-      returnTo,
+  let safe = "/";
+  try {
+    const u = new URL(returnTo ?? "/", "http://local");
+    if (
+      u.origin === "http://local" &&
+      !returnTo?.includes("\\") &&
+      /^\/(?:parking|legacy|eligibility|bookings\/[a-f0-9-]+(?:\/(?:zone|arrival))?|admin\/(?:demo|eligibility))?$/.test(
+        u.pathname,
+      )
     )
-      ? returnTo
-      : "/";
+      safe = u.pathname + u.search;
+  } catch {}
   return (
     <PageShell>
       <SignIn returnTo={safe} />

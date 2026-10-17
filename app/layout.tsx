@@ -3,8 +3,13 @@ import "./globals.css";
 import { DemoModeIndicator } from "@/components/demo-mode-indicator";
 export const metadata: Metadata = {
   referrer: "no-referrer",
-  title: "ParkAhead · A little planning. A better arrival.",
-  description: "Reserve your parking at Demo Central Mall.",
+  title: {
+    default: "ParkAhead. · Plan your parking",
+    template: "%s · ParkAhead.",
+  },
+  icons: { icon: "/icon.svg" },
+  description:
+    "Choose parking across four fictional malls, with clear bay types and mall-scoped OKU eligibility.",
 };
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (

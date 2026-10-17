@@ -8,7 +8,7 @@ const localAuthConfigured =
 test("search is responsive and shows honest configuration state", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/legacy");
   await expect(
     page.getByRole("heading", { name: "Less circling. More getting there." }),
   ).toBeVisible();
@@ -31,7 +31,7 @@ test.describe("configured local Supabase", () => {
   test("sign in → search → review → confirmation → own bookings → cancel", async ({
     page,
   }) => {
-    await page.goto("/");
+    await page.goto("/legacy");
     await page
       .getByRole("button", { name: "Sign in", exact: true })
       .last()
@@ -50,6 +50,10 @@ test.describe("configured local Supabase", () => {
       .last()
       .click();
     await page.getByRole("button", { name: "Choose zone" }).first().click();
+    await page.getByLabel("Vehicle plate", { exact: true }).fill("E2E0123");
+    await page
+      .getByRole("button", { name: "Confirm your plate: E2E0123", exact: true })
+      .click();
     await page.getByRole("button", { name: "Confirm reservation" }).click();
     await expect(
       page.getByRole("heading", { name: "Your booking details" }),
@@ -87,7 +91,7 @@ test("shows no available zones without claiming success", async ({ page }) => {
   await page.route("**/api/recommendations?*", (r) =>
     r.fulfill({ json: { data: [] } }),
   );
-  await page.goto("/");
+  await page.goto("/legacy");
   await page
     .getByRole("button", { name: "Find parking", exact: true })
     .last()
@@ -119,7 +123,7 @@ test("reports an allocation conflict after recommendations without showing a con
     !localAuthConfigured,
     "Requires a confirmed local customer. Only the final conflict response is stubbed.",
   );
-  await page.goto("/");
+  await page.goto("/legacy");
   await page
     .getByRole("button", { name: "Sign in", exact: true })
     .last()
@@ -149,6 +153,10 @@ test("reports an allocation conflict after recommendations without showing a con
       },
     }),
   );
+  await page.getByLabel("Vehicle plate", { exact: true }).fill("E2E0123");
+  await page
+    .getByRole("button", { name: "Confirm your plate: E2E0123", exact: true })
+    .click();
   await page.getByRole("button", { name: "Confirm reservation" }).click();
   await expect(
     page.getByRole("alert").filter({ hasText: "Availability changed" }),

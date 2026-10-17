@@ -1,27 +1,12 @@
-# ParkAhead — short hackathon presentation
+# ParkAhead demonstration
 
-**1. Problem (about 20 seconds)**
+1. Open `/parking`. Select a fictional mall, a future interval of at least one hour, and a destination. Show B1 and B2: both contain Zone A, with different full labels and IDs. Change malls to show distinct layouts.
+2. Switch map/list view, inspect one standard bay and select it explicitly. Add nice-to-haves and must-haves. Show that unknown route measurements cannot satisfy a required step-free route. Software availability is reservation-based.
+3. Filter OKU bays. Inspect the category symbol and restriction notice. A nonapproved customer can see the bay but cannot select it for booking. Standard alternatives remain available.
+4. Sign in and open `/eligibility`, select the same mall and request review. Explain: “Demo eligibility review. This does not implement a real-world verification process.” No documents or sensitive identifiers are requested.
+5. As an admin, open `/admin/eligibility`, approve the request, then refresh the customer's eligibility/parking view. Book the exact OKU bay with a plate. Approval at another mall would not apply. Step-free requirements still apply independently.
+6. Open booking details, confirm the plate and full location, and show the numbered read-only floor map. Booking-time preference, location and approval snapshots are retained.
+7. In local demo mode, use `/admin/demo` to create the current admin's fixtures. Open fixture A's manual arrival screen. Before its start, check-in is disabled. Advance five minutes, refresh, check in, then complete parking. No QR, gate simulator, camera or barrier control exists.
+8. Reset the current admin's fixtures, advance past the arrival deadline and run cleanup for a quick demonstration. Show no-show release and the reusable bay. Separately, integration checks verify automatic pg_cron release without a browser.
 
-“Our hypotheses are that visitors want more confidence before arriving, that an available zone may not suit their destination or walking needs, and that unused reservations can block scheduled availability. We have not validated these through user research yet.”
-
-**2. User voice (10 seconds)**
-
-“An illustrative statement, not an interview quote: ‘I want to know where I’m parking before I arrive, especially when I’m heading to a specific place.’” Show the clearly labelled statement on `/demo-story`. Use the saved wording if the admin has edited it; do not invent a participant.
-
-**3. Successful journey (about 60 seconds)**
-
-Choose Cinema and verified step-free route. Show available standard bays, the verified fictional route and explicit booking review. Confirm; point out the assigned bay and stored arrival deadline. Show the separate driving and walking guidance, then the QR/non-QR arrival link. Advance the server demo clock to start, refresh and explicitly simulate check-in. Show Parking in progress, then simulate departure and the completed state. “No physical presence or empty bay was verified.”
-
-**4. No-show and late arrival (about 45 seconds)**
-
-From a confirmed fixture show overlapping scheduled availability. Advance past its arrival deadline. Explain that PostgreSQL runs cleanup every minute even with no browser open; use Run cleanup only to avoid waiting during the pitch. Show the no-show event and capacity change. Create the explicit subsequent booking for the remaining interval. Open the old arrival URL: it is released and cannot be checked in. “A released reservation is not proof that a real bay is empty.”
-
-**5. Demonstrated results (20 seconds)**
-
-Refresh the actual event-based metrics on the story/dashboard. Read only the values currently displayed. Explain “Scheduled minutes released in simulation” as the remaining original interval at release, counted once. Do not quote a canned number, percentage, rebooking claim, time-saving or environmental benefit.
-
-**6. Limits and next steps (20 seconds)**
-
-“This demonstrates transactional software allocation, route-aware recommendations, authorized lifecycle changes and automated release. It does not prove physical availability, real search-time improvements, customer demand or commercial viability. Next: user testing, a mall-operator pilot, real occupancy/access integration and verification of actual route information.”
-
-Before presenting: use a dedicated demo project, verify the cron job, enable database demo mode, sign in as an authorized admin and confirm RESET. Reset touches only your scenario fixtures; the shared demo clock still affects all demo records. No production data or default admin credentials are used.
+Use the shared green ParkAhead wordmark, navigation and typography as visual continuity across booking, auth, admin and error screens. Layouts and routes are fictional; reservation status does not establish physical occupancy. The software is a prototype, and eligibility review does not claim real verification.

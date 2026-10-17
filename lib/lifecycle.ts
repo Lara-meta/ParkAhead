@@ -1,9 +1,10 @@
 import { z } from "zod";
+import type { Evaluation, PreferenceKey } from "./parking";
 export const lifecycleSearchSchema = z
   .object({
-    mallId: z.uuid(),
-    zoneId: z.uuid().optional(),
-    destinationId: z.uuid().nullable().optional(),
+    mallId: z.guid(),
+    zoneId: z.guid().optional(),
+    destinationId: z.guid().nullable().optional(),
     preference: z.enum(["none", "shorter_walk", "step_free"]).default("none"),
     startAt: z.iso.datetime({ offset: true }),
     endAt: z.iso.datetime({ offset: true }),
@@ -29,19 +30,47 @@ export type JourneyBooking = {
   start_at: string;
   end_at: string;
   arrival_deadline: string;
-  check_in_token: string;
+  normalized_plate: string | null;
+  location_snapshot?: {
+    mallName: string;
+    floor: string;
+    zoneName: string;
+    bayLabel: string;
+  };
+  eligibility_snapshot?: {
+    status?: string;
+    checkedAt?: string;
+    policy?: string;
+  };
+  parking_session?: {
+    id: string;
+    status: string;
+    entered_at: string;
+    exited_at: string | null;
+    association_type: string | null;
+    closure_reason: string | null;
+  } | null;
   released_at: string | null;
   checked_in_at: string | null;
   completed_at: string | null;
   is_demo: boolean;
-  demo_scenario: "A" | "B" | null;
+  demo_scenario: "A" | "B" | "E" | "F" | null;
   demo_rebooking_of: string | null;
   server_now: string;
   preference: string;
+  selected_preferences?: PreferenceKey[];
+  required_preferences?: PreferenceKey[];
+  recommendation_snapshot?: Evaluation;
   bay_id: string;
   bays: {
     label: string;
-    zones: { id: string; name: string; floor: string; malls: { name: string } };
+    zones: {
+      id: string;
+      name: string;
+      floor: string;
+      floor_id?: string;
+      malls: { id?: string; timezone?: string; name: string };
+    };
   };
   destinations: { name: string } | null;
   guidance: {

@@ -12,7 +12,9 @@ export default function Page() {
           <h1 className="my-5 max-w-3xl text-5xl font-semibold leading-tight">
             A little planning.
             <br />
-            <span className="text-[#478464]">A better arrival.</span>
+            <span className="text-[var(--brand-secondary)]">
+              A better arrival.
+            </span>
           </h1>
           <p className="max-w-2xl text-lg leading-8 muted">
             Book → Find your zone → Arrive → Simulate check-in → Complete
@@ -59,7 +61,7 @@ export default function Page() {
               "Simulate check-in and departure",
               "Automatically release no-shows",
             ].map((s, i) => (
-              <li key={s} className="rounded-xl bg-[#f1f5eb] p-4">
+              <li key={s} className="rounded-xl bg-[var(--surface-muted)] p-4">
                 <span className="eyebrow">0{i + 1}</span>
                 <p className="mt-3 text-sm font-semibold">{s}</p>
               </li>
@@ -75,8 +77,8 @@ export default function Page() {
             <div>
               <h3 className="font-bold">A · A successful visit</h3>
               <p className="mt-2 text-sm leading-6 muted">
-                Cinema + verified step-free route. Reserve, find the zone,
-                explicitly check in and complete parking.
+                Cinema + verified step-free route. Reserve, find the zone, use
+                simulated plate entry, then exit and complete parking.
               </p>
             </div>
             <div>
@@ -90,8 +92,8 @@ export default function Page() {
             <div>
               <h3 className="font-bold">C · A late arrival</h3>
               <p className="mt-2 text-sm leading-6 muted">
-                Open the released booking. Check-in is rejected. The customer
-                must search and create a new booking.
+                Enter the released plate at the simulator. It registers a
+                walk-in; the old booking remains no-show.
               </p>
             </div>
           </div>

@@ -1,10 +1,12 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { PlateConfirmation } from "@/components/plate-confirmation";
 import { usePathname } from "next/navigation";
-import QRCode from "qrcode";
+
 import { Check, Clock, MapPin, ParkingCircle } from "lucide-react";
+import { StoredFloorMap } from "@/components/parking/stored-floor-map";
+import { PreferenceExplanation } from "@/components/parking/preference-explanation";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/client-api";
 import {
@@ -18,7 +20,6 @@ import { canCancel, displayTime } from "@/lib/rules";
 function ZoneGuidance({ booking: b }: { booking: JourneyBooking }) {
   const instructions = navigationInstructions(b),
     zone = b.bays.zones;
-  const known = !!b.guidance;
   const walking = !!instructions.walking.length;
   return (
     <section className="panel">
@@ -27,69 +28,18 @@ function ZoneGuidance({ booking: b }: { booking: JourneyBooking }) {
       <p className="my-3">
         {zone.malls.name} · {zone.floor} · {zone.name} · Bay {b.bays.label}
       </p>
-      <svg
-        viewBox="0 0 460 330"
-        role="img"
-        aria-label={`Fictional orientation map: ${zone.name}, assigned bay ${b.bays.label}. Driving and walking routes are labelled separately.`}
-        className="my-5 w-full rounded-xl bg-[#f1f4ed]"
-      >
-        <rect x="28" y="70" width="170" height="120" rx="15" fill="#cddfc1" />
-        <text x="45" y="105" fontSize="19">
-          Reserved {zone.name}
-        </text>
-        <rect x="48" y="122" width="125" height="44" rx="8" fill="#185743" />
-        <text x="62" y="150" fontSize="16" fill="white">
-          Bay {b.bays.label}
-        </text>
-        {known ? (
-          <>
-            <text x="22" y="290" fontSize="13">
-              {b.guidance!.vehicle_entrance}
-            </text>
-            <path
-              d="M100 265 V215 H110 V180"
-              fill="none"
-              stroke="#185743"
-              strokeWidth="6"
-            />
-            <text x="135" y="240" fontSize="12">
-              DRIVING → zone
-            </text>
-            <rect
-              x="265"
-              y="80"
-              width="170"
-              height="65"
-              rx="10"
-              fill="#e5dfbf"
-            />
-            <text x="280" y="118" fontSize="14">
-              {b.guidance!.lift_lobby}
-            </text>
-          </>
-        ) : (
-          <text x="30" y="230" fontSize="14">
-            Entrance/lobby guidance unavailable
-          </text>
-        )}
-        {walking && (
-          <>
-            <path
-              d="M195 115 H260 M350 150 V240"
-              fill="none"
-              stroke="#a26c30"
-              strokeWidth="4"
-              strokeDasharray="7 5"
-            />
-            <text x="255" y="180" fontSize="11">
-              WALKING → destination
-            </text>
-            <text x="265" y="265" fontSize="15">
-              {b.destinations?.name}
-            </text>
-          </>
-        )}
-      </svg>
+      {zone.floor_id && zone.malls.id ? (
+        <StoredFloorMap
+          mallId={zone.malls.id}
+          floorId={zone.floor_id}
+          selectedId={b.bay_id}
+        />
+      ) : (
+        <p className="notice">
+          Stored floor geometry is unavailable for this historical location.
+        </p>
+      )}
+
       <div className="grid gap-5 sm:grid-cols-2">
         <div>
           <h3 className="font-bold">Driving: entrance → reserved zone</h3>
@@ -142,11 +92,9 @@ function ZoneGuidance({ booking: b }: { booking: JourneyBooking }) {
 }
 export function BookingJourney({
   id,
-  token,
   screen = "details",
 }: {
   id?: string;
-  token?: string;
   screen?: "details" | "arrival" | "zone";
 }) {
   const [booking, setBooking] = useState<JourneyBooking | null>(null),
@@ -155,10 +103,9 @@ export function BookingJourney({
     [fresh, setFresh] = useState(false),
     [busy, setBusy] = useState(false),
     [now, setNow] = useState(0),
-    [qr, setQr] = useState(""),
-    [qrError, setQrError] = useState("");
+    [plate, setPlate] = useState("");
   const path = usePathname();
-  const endpoint = token ? "arrival/" + token : "reservations/" + id;
+  const endpoint = "reservations/" + id;
   const refresh = useCallback(async () => {
     try {
       const b = await api<JourneyBooking>(endpoint);
@@ -211,28 +158,13 @@ export function BookingJourney({
     )
       refresh();
   }, [booking, now, fresh, refresh]);
-  useEffect(() => {
-    if (!booking?.check_in_token) return;
-    QRCode.toDataURL(
-      new URL("/arrival/" + booking.check_in_token, window.location.origin)
-        .href,
-      { width: 220, margin: 2, errorCorrectionLevel: "M" },
-    )
-      .then(setQr)
-      .catch(() =>
-        setQrError("QR could not be generated. Use Open arrival screen below."),
-      );
-  }, [booking?.check_in_token]);
   async function act(action: "check-in" | "complete" | "cancel") {
     if (busy) return;
     setBusy(true);
     setError("");
     setMessage("");
     try {
-      await api(
-        token ? `arrival/${token}/${action}` : `reservations/${id}/${action}`,
-        {},
-      );
+      await api(`reservations/${id}/${action}`, {});
       await refresh();
       setMessage(
         action === "check-in"
@@ -323,6 +255,22 @@ export function BookingJourney({
               : "Your booking details"}
         </h1>
         <p className="break-all text-xs muted">Reference: {booking.id}</p>
+        {booking.location_snapshot &&
+          booking.location_snapshot.bayLabel !== booking.bays.label && (
+            <p className="notice my-3">
+              Original booking location: {booking.location_snapshot.mallName} ·{" "}
+              {booking.location_snapshot.floor} ·{" "}
+              {booking.location_snapshot.zoneName} ·{" "}
+              {booking.location_snapshot.bayLabel}. The current label below
+              refers to the same retained bay ID.
+            </p>
+          )}
+        {booking.eligibility_snapshot?.status === "approved" && (
+          <p className="notice my-3">
+            ♿ OKU booking · Simulated mall approval was recorded when this
+            reservation was created.
+          </p>
+        )}
         <ol
           aria-label="Booking progress"
           className="my-6 grid grid-cols-4 gap-2"
@@ -330,7 +278,7 @@ export function BookingJourney({
           {["Reserved", "Arrived", "Parking", "Completed"].map((label, i) => (
             <li
               key={label}
-              className={`rounded-lg p-3 text-center text-xs ${i < step ? "bg-[#e1edd7]" : "bg-slate-50"}`}
+              className={`rounded-lg p-3 text-center text-xs ${i < step ? "bg-[var(--surface-accent)]" : "bg-slate-50"}`}
             >
               <span className="mb-2 block">
                 {i < step ? <Check className="mx-auto" size={17} /> : i + 1}
@@ -353,7 +301,7 @@ export function BookingJourney({
           </p>
         )}
         <div className="my-5 grid gap-5 md:grid-cols-2">
-          <div className="rounded-xl bg-[#f1f5eb] p-5">
+          <div className="rounded-xl bg-[var(--surface-muted)] p-5">
             <ParkingCircle size={24} />
             <span className="eyebrow mt-3 block">Assigned standard bay</span>
             <h2 className="my-2 text-4xl font-semibold">
@@ -370,12 +318,24 @@ export function BookingJourney({
             )}
           </div>
           <div className="leading-7">
-            <p>Start: {displayTime(booking.start_at)}</p>
-            <p>End: {displayTime(booking.end_at)}</p>
-            <p className="mt-2 font-semibold">
-              Arrival deadline: {displayTime(booking.arrival_deadline)}
+            <p>
+              Start:{" "}
+              {displayTime(booking.start_at, booking.bays.zones.malls.timezone)}
             </p>
-            <p className="text-xs muted">Asia/Kuala_Lumpur (MYT)</p>
+            <p>
+              End:{" "}
+              {displayTime(booking.end_at, booking.bays.zones.malls.timezone)}
+            </p>
+            <p className="mt-2 font-semibold">
+              Arrival deadline:{" "}
+              {displayTime(
+                booking.arrival_deadline,
+                booking.bays.zones.malls.timezone,
+              )}
+            </p>
+            <p className="text-xs muted">
+              {booking.bays.zones.malls.timezone ?? "Asia/Kuala_Lumpur"}
+            </p>
             <p className="mt-3 font-semibold" aria-live="polite">
               {fresh
                 ? reminder(booking, now)
@@ -390,8 +350,12 @@ export function BookingJourney({
             )}
             {booking.is_demo && (
               <p className="mt-2 text-xs muted">
-                Demo time: {displayTime(booking.server_now)}. The clock moves
-                only when an admin advances it.
+                Demo time:{" "}
+                {displayTime(
+                  booking.server_now,
+                  booking.bays.zones.malls.timezone,
+                )}
+                . The clock moves only when an admin advances it.
               </p>
             )}
           </div>
@@ -402,6 +366,16 @@ export function BookingJourney({
             enforcement is implied.
           </p>
         )}
+        {booking.recommendation_snapshot && (
+          <section className="my-5 rounded-xl border border-slate-200 p-4">
+            <h2 className="mb-3 text-lg font-semibold">
+              Preferences saved at booking
+            </h2>
+            <PreferenceExplanation
+              evaluation={booking.recommendation_snapshot}
+            />
+          </section>
+        )}
         <div className="flex flex-wrap gap-3">
           <Button asChild variant="outline">
             <Link href={`/bookings/${booking.id}/zone`}>
@@ -411,8 +385,8 @@ export function BookingJourney({
           </Button>
           {screen !== "arrival" && (
             <Button asChild>
-              <Link href={"/arrival/" + booking.check_in_token}>
-                Open arrival screen
+              <Link href={`/bookings/${booking.id}/arrival`}>
+                Manual arrival fallback
               </Link>
             </Button>
           )}
@@ -455,34 +429,63 @@ export function BookingJourney({
       {screen === "zone" ? (
         <ZoneGuidance booking={booking} />
       ) : (
-        <section className="panel flex flex-wrap items-center gap-6">
-          <div>
-            {qr ? (
-              <Image
-                src={qr}
-                width={220}
-                height={220}
-                unoptimized
-                alt="QR link to this booking’s authorized arrival screen"
-              />
-            ) : (
-              <p className="text-sm muted">{qrError || "Preparing QR…"}</p>
+        <section className="panel">
+          <h2 className="text-xl font-semibold">Booking reference</h2>
+          {booking.parking_session && (
+            <p className="my-3 text-sm">
+              Entry status: {booking.parking_session.status} · Entered{" "}
+              {displayTime(booking.parking_session.entered_at)}
+              {booking.parking_session.closure_reason === "timeout" &&
+                " · Session auto-closed by timeout; physical departure was not verified."}
+            </p>
+          )}
+          <p className="my-3">
+            Your plate:{" "}
+            <strong>
+              {booking.normalized_plate ??
+                "Not assigned — manual admin assistance required"}
+            </strong>
+          </p>
+          <p className="text-sm muted">
+            Plate is used only for parking access. Use the authenticated arrival
+            page for simulated check-in and completion.
+          </p>
+          {booking.status === "confirmed" &&
+            now < Date.parse(booking.arrival_deadline) && (
+              <>
+                <PlateConfirmation onConfirmed={setPlate} />
+                <Button
+                  disabled={!plate || busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    setError("");
+                    try {
+                      await api(
+                        "bookings/" + booking.id + "/plate",
+                        { plate },
+                        "PATCH",
+                      );
+                      setPlate("");
+                      await refresh();
+                      setMessage("Plate updated.");
+                    } catch (e) {
+                      setError((e as Error).message);
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  Save confirmed plate
+                </Button>
+              </>
             )}
-          </div>
-          <div className="max-w-md">
-            <h2 className="text-xl font-semibold">
-              A small code. A smoother arrival.
-            </h2>
-            <p className="my-3 text-sm leading-6 muted">
-              Scan with your phone, or use Open arrival screen. The link
-              contains only an opaque token. Sign-in as the booking owner or
-              authorized demo admin is still required.
-            </p>
-            <p className="text-xs muted">
-              The phone needs network access to this app. Localhost links only
-              work on the same device.
-            </p>
-          </div>
+          {booking.status === "checked_in" &&
+            now >= Date.parse(booking.end_at) && (
+              <p className="notice mt-3">
+                Overdue — parking session remains open until departure or
+                administrative timeout.
+              </p>
+            )}
         </section>
       )}
       <p className="notice">

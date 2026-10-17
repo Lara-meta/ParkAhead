@@ -10,7 +10,7 @@ export function DemoModeIndicator() {
       .catch(() => {});
   }, []);
   return (
-    <div className="bg-[#193e32] px-4 py-2 text-center text-xs leading-5 text-white">
+    <div className="bg-[var(--foreground)] px-4 py-2 text-center text-xs leading-5 text-white">
       {demo
         ? "DEMO MODE · Server-controlled demo clock · "
         : "SOFTWARE PROTOTYPE · "}

@@ -33,6 +33,20 @@ describe.skipIf(!enabled)(
     }
     async function clear() {
       if (!root || !users.length) return;
+      const sessions = await root
+        .from("parking_sessions")
+        .select("id")
+        .in("created_by", users);
+      if (sessions.data?.length)
+        await root
+          .from("access_events")
+          .delete()
+          .in(
+            "session_id",
+            sessions.data.map((s) => s.id),
+          );
+      await root.from("access_events").delete().in("actor_user_id", users);
+      await root.from("parking_sessions").delete().in("created_by", users);
       const rows = await query(
         root.from("reservations").select("id").in("user_id", users),
       );
@@ -74,7 +88,7 @@ describe.skipIf(!enabled)(
           .insert({ id: bay, zone_id: zone, label: "T-" + bay.slice(0, 8) }),
       );
       const s = demo ? at(10) : new Date(Date.now() + 86400000).toISOString();
-      const e = new Date(Date.parse(s) + 3600000).toISOString();
+      const e = new Date(Date.parse(s) + 7200000).toISOString();
       return await query(
         client.rpc("reserve", {
           p_mall: malls[demo ? 0 : 1],
@@ -84,6 +98,9 @@ describe.skipIf(!enabled)(
           p_destination: null,
           p_preference: "none",
           p_key: crypto.randomUUID(),
+          p_plate:
+            "TEST" +
+            String(crypto.randomUUID()).replaceAll("-", "").slice(0, 12),
         }),
       );
     }
@@ -191,6 +208,8 @@ describe.skipIf(!enabled)(
         await query(root.from("bays").delete().in("zone_id", zones));
         await query(root.from("zones").delete().in("id", zones));
       }
+      if (malls.length)
+        await query(root.from("parking_floors").delete().in("mall_id", malls));
       if (malls.length)
         await query(root.from("malls").delete().in("id", malls));
       for (const id of users) await root.auth.admin.deleteUser(id);
@@ -318,7 +337,7 @@ describe.skipIf(!enabled)(
       await query(
         root
           .from("runtime_settings")
-          .update({ grace_minutes: 60 })
+          .update({ grace_minutes: 120 })
           .eq("singleton", true),
       );
       expect(
@@ -327,10 +346,13 @@ describe.skipIf(!enabled)(
             p_mall: malls[0],
             p_zone: zones[0],
             p_start: at(10),
-            p_end: at(70),
+            p_end: at(130),
             p_destination: null,
             p_preference: "none",
             p_key: crypto.randomUUID(),
+            p_plate:
+              "TEST" +
+              String(crypto.randomUUID()).replaceAll("-", "").slice(0, 12),
           })
         ).error?.code,
       ).toBe("22023");
@@ -352,10 +374,13 @@ describe.skipIf(!enabled)(
           p_mall: malls[0],
           p_zone: zones[0],
           p_start: at(12),
-          p_end: at(70),
+          p_end: at(130),
           p_destination: null,
           p_preference: "none",
           p_key: crypto.randomUUID(),
+          p_plate:
+            "TEST" +
+            String(crypto.randomUUID()).replaceAll("-", "").slice(0, 12),
         }),
       );
       expect(next.bay_id).toBe(original.bay_id);
@@ -407,7 +432,7 @@ describe.skipIf(!enabled)(
           .eq("event_type", "no_show_released"),
       );
       expect(events).toHaveLength(1);
-      expect(events![0].details.released_minutes).toBe(45);
+      expect(events![0].details.released_minutes).toBe(105);
       const metrics = await query(anonymous.rpc("demo_metrics"));
       expect(metrics.noShows).toBeGreaterThanOrEqual(1);
       const before = metrics.scheduledMinutesReleased;
@@ -420,10 +445,13 @@ describe.skipIf(!enabled)(
           p_mall: malls[0],
           p_zone: zones[0],
           p_start: at(26),
-          p_end: at(70),
+          p_end: at(130),
           p_destination: null,
           p_preference: "none",
           p_key: crypto.randomUUID(),
+          p_plate:
+            "TEST" +
+            String(crypto.randomUUID()).replaceAll("-", "").slice(0, 12),
         }),
       );
       expect(rebook.bay_id).toBe(b.bay_id);
@@ -504,7 +532,7 @@ describe.skipIf(!enabled)(
       const d = await query(
         admin.rpc("reset_demo", { p_confirmation: "RESET" }),
       );
-      expect(d.bookings).toHaveLength(2);
+      expect(d.bookings).toHaveLength(16);
       expect(
         (
           await query(
@@ -527,7 +555,7 @@ describe.skipIf(!enabled)(
       const reset = await query(
         admin.rpc("reset_demo", { p_confirmation: "RESET" }),
       );
-      expect(reset.bookings).toHaveLength(2);
+      expect(reset.bookings).toHaveLength(16);
       expect(
         (
           await query(

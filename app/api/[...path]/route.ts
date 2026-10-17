@@ -1,9 +1,15 @@
+import { plateInputSchema } from "@/lib/plates";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { database } from "@/lib/supabase/server";
 import { recommend, type Zone } from "@/lib/rules";
 import { lifecycleSearchSchema as searchSchema } from "@/lib/lifecycle";
-const uuid = z.uuid();
+import {
+  exactBookingSchema,
+  parkingRequestSchema,
+  floorMapSchema,
+} from "@/lib/parking";
+const uuid = z.guid();
 class Failure extends Error {
   constructor(
     public status: number,
@@ -19,10 +25,14 @@ export async function GET(req: NextRequest) {
   return response;
 }
 export async function POST(req: NextRequest) {
-  return handle(req);
+  const response = await handle(req);
+  response.headers.set("Cache-Control", "no-store");
+  return response;
 }
 export async function PATCH(req: NextRequest) {
-  return handle(req);
+  const response = await handle(req);
+  response.headers.set("Cache-Control", "no-store");
+  return response;
 }
 async function handle(req: NextRequest) {
   try {
@@ -38,6 +48,18 @@ async function handle(req: NextRequest) {
     const fail = (error: { code?: string; message?: string } | null) => {
       if (!error) return;
       const code = error.code ?? "";
+      if (code === "P0004")
+        throw new Failure(
+          403,
+          "OKU_ELIGIBILITY_REQUIRED",
+          "Approved, unexpired OKU eligibility for this mall is required. Request a simulated review or choose a standard bay.",
+        );
+      if (code === "P0003")
+        throw new Failure(
+          409,
+          "REQUIREMENTS_CHANGED",
+          "Your required preferences are no longer met by this bay. Review the updated map or change your requirements.",
+        );
       if (code === "P0001")
         throw new Failure(
           409,
@@ -50,13 +72,13 @@ async function handle(req: NextRequest) {
         throw new Failure(
           400,
           "INVALID_INPUT",
-          "Check your dates, destination and preferences.",
+          "Check your dates, plate, destination and preferences. Bookings require at least one hour.",
         );
       if (["23P01", "23505"].includes(code))
         throw new Failure(
           409,
           "CONFLICT",
-          "Availability changed, the request key was reused, or this action is no longer eligible. Search again.",
+          "The bay or plate has a conflicting booking/session, the request key was reused, or this action is no longer eligible. Review the plate and times; no other customer details are disclosed.",
         );
       if (code === "42501")
         throw new Failure(
@@ -74,6 +96,56 @@ async function handle(req: NextRequest) {
         "Unable to complete this request. Please try again.",
       );
     };
+    if (p[0] === "plate-configuration" && req.method === "GET") {
+      const r = await db.rpc("plate_configuration");
+      fail(r.error);
+      return NextResponse.json({ data: r.data });
+    }
+    if (p[0] === "floors" && p[2] === "map" && req.method === "GET") {
+      const mallId = uuid.parse(req.nextUrl.searchParams.get("mallId"));
+      const floorId = uuid.parse(p[1]);
+      const r = await db.rpc("floor_map", { p_mall: mallId, p_floor: floorId });
+      fail(r.error);
+      return NextResponse.json({ data: floorMapSchema.parse(r.data) });
+    }
+    if (p[0] === "recommendations" && req.method === "POST") {
+      const v = parkingRequestSchema.parse(await req.json());
+      const r = await db.rpc("recommend_bays", {
+        p_mall: v.mallId,
+        p_start: v.startAt,
+        p_end: v.endAt,
+        p_destination: v.destinationId ?? null,
+        p_selected: v.selectedPreferences,
+        p_required: v.requiredPreferences,
+      });
+      fail(r.error);
+      return NextResponse.json({ data: r.data });
+    }
+    if (
+      p[0] === "availability" &&
+      req.method === "GET" &&
+      req.nextUrl.searchParams.get("granularity") === "bay"
+    ) {
+      const q = Object.fromEntries(req.nextUrl.searchParams);
+      const v = z
+        .object({
+          mallId: uuid,
+          startAt: z.iso.datetime({ offset: true }),
+          endAt: z.iso.datetime({ offset: true }),
+          floorId: uuid.optional(),
+          destinationId: uuid.optional(),
+        })
+        .parse(q);
+      const r = await db.rpc("bay_availability", {
+        p_mall: v.mallId,
+        p_start: v.startAt,
+        p_end: v.endAt,
+        p_floor: v.floorId ?? null,
+        p_destination: v.destinationId ?? null,
+      });
+      fail(r.error);
+      return NextResponse.json({ data: r.data });
+    }
     if (p[0] === "clock" && req.method === "GET") {
       const mall = req.nextUrl.searchParams.get("mallId");
       const r = await db.rpc("clock_context", {
@@ -94,11 +166,41 @@ async function handle(req: NextRequest) {
     }
     if (p[0] === "malls") {
       if (p.length === 1) {
-        const r = await db.from("malls").select("*").eq("is_active", true);
+        const r = await db
+          .from("malls")
+          .select("*,parking_floors(*),destinations(id,name)")
+          .eq("is_active", true)
+          .order("sort_order", { referencedTable: "parking_floors" })
+          .order("name");
         fail(r.error);
         return NextResponse.json({ data: r.data });
       }
       uuid.parse(p[1]);
+      const mallResource = await db
+        .from("malls")
+        .select("id")
+        .eq("id", p[1])
+        .maybeSingle();
+      fail(mallResource.error);
+      if (!mallResource.data)
+        throw new Failure(404, "NOT_FOUND", "Mall not found.");
+      if (p[2] === "floors" && req.method === "GET") {
+        const r = await db
+          .from("parking_floors")
+          .select("*")
+          .eq("mall_id", p[1])
+          .order("sort_order");
+        fail(r.error);
+        return NextResponse.json({ data: r.data });
+      }
+      if (p[2] === "preferences" && req.method === "GET") {
+        const r = await db
+          .from("preference_definitions")
+          .select("*")
+          .order("id");
+        fail(r.error);
+        return NextResponse.json({ data: r.data });
+      }
       if (p[2] === "destinations") {
         const r = await db
           .from("destinations")
@@ -140,6 +242,60 @@ async function handle(req: NextRequest) {
         throw new Failure(403, "FORBIDDEN", "Administrator access required.");
       p.shift();
     }
+    if (p[0] === "me" && p[1] === "eligibility") {
+      const r =
+        req.method === "GET"
+          ? await db.rpc("my_eligibility", {
+              p_mall: uuid.parse(req.nextUrl.searchParams.get("mallId")),
+            })
+          : await db.rpc("request_eligibility", {
+              p_mall: z
+                .object({ mallId: uuid })
+                .strict()
+                .parse(await req.json()).mallId,
+            });
+      fail(r.error);
+      return NextResponse.json({ data: r.data });
+    }
+    if (admin && p[0] === "eligibility") {
+      if (req.method === "GET") {
+        const r = await db.rpc("eligibility_dashboard");
+        fail(r.error);
+        return NextResponse.json({ data: r.data });
+      }
+      if (req.method === "POST" && p[2] === "review") {
+        const v = z
+          .object({
+            status: z.enum(["approved", "rejected"]),
+            expiresAt: z.iso.datetime({ offset: true }).nullable().optional(),
+          })
+          .strict()
+          .parse(await req.json());
+        const r = await db.rpc("review_eligibility", {
+          p_id: uuid.parse(p[1]),
+          p_status: v.status,
+          p_expires: v.expiresAt ?? null,
+        });
+        fail(r.error);
+        return NextResponse.json({ data: r.data });
+      }
+    }
+    if (
+      ["bookings", "reservations"].includes(p[0]) &&
+      p[2] === "plate" &&
+      req.method === "PATCH"
+    ) {
+      const v = z
+        .object({ plate: plateInputSchema })
+        .strict()
+        .parse(await req.json());
+      const r = await db.rpc("update_booking_plate", {
+        p_id: uuid.parse(p[1]),
+        p_plate: v.plate,
+      });
+      fail(r.error);
+      return NextResponse.json({ data: r.data });
+    }
     if (admin && p[0] === "demo") {
       let result;
       if (req.method === "GET" && p.length === 1)
@@ -177,37 +333,12 @@ async function handle(req: NextRequest) {
       fail(result.error);
       return NextResponse.json({ data: result.data });
     }
-    if (p[0] === "arrival") {
-      const token = uuid.parse(p[1]);
-      const details = await db.rpc("booking_details", { p_token: token });
-      fail(details.error);
-      if (req.method === "GET")
-        return NextResponse.json({ data: details.data });
-      const next =
-        p[2] === "check-in"
-          ? "checked_in"
-          : p[2] === "complete"
-            ? "completed"
-            : null;
-      if (req.method !== "POST" || !next)
-        throw new Failure(404, "NOT_FOUND", "Unknown arrival action.");
-      const r = await db.rpc("transition", {
-        p_id: details.data.id,
-        p_next: next,
-      });
-      fail(r.error);
-      if (r.data.status !== next)
-        throw new Failure(
-          409,
-          "BOOKING_RELEASED",
-          r.data.status === "no_show"
-            ? "This booking was released after the arrival deadline. Create a new booking."
-            : "This booking is no longer eligible for this action.",
-        );
-      const fresh = await db.rpc("booking_details", { p_id: r.data.id });
-      fail(fresh.error);
-      return NextResponse.json({ data: fresh.data });
-    }
+    if (p[0] === "arrival")
+      throw new Failure(
+        410,
+        "REMOVED",
+        "Use the authenticated booking arrival screen.",
+      );
     let data: unknown;
     if (admin && p[0] === "bays") {
       if (req.method === "PATCH") {
@@ -219,7 +350,7 @@ async function handle(req: NextRequest) {
       } else {
         const r = await db
           .from("bays")
-          .select("*,zones(name,floor)")
+          .select("*,zones:zones!bays_zone_id_fkey(name,floor)")
           .order("label");
         fail(r.error);
         data = r.data;
@@ -236,7 +367,36 @@ async function handle(req: NextRequest) {
     ) {
       if (req.method === "POST" && p.length === 1 && !admin) {
         const body = await req.json();
-        const v = z.object(searchSchema.shape).parse(body);
+        if (!body || typeof body !== "object" || Array.isArray(body))
+          throw new Failure(
+            400,
+            "INVALID_INPUT",
+            "Expected a booking request object.",
+          );
+        if ("bayId" in body) {
+          const v = exactBookingSchema.parse(body);
+          const r = await db.rpc("reserve_bay", {
+            p_mall: v.mallId,
+            p_bay: v.bayId,
+            p_start: v.startAt,
+            p_end: v.endAt,
+            p_destination: v.destinationId ?? null,
+            p_selected: v.selectedPreferences,
+            p_required: v.requiredPreferences,
+            p_key: v.idempotencyKey,
+            p_plate: v.plate,
+          });
+          fail(r.error);
+          return NextResponse.json({ data: r.data });
+        }
+        const v = z
+          .object({
+            ...searchSchema.shape,
+            idempotencyKey: uuid,
+            plate: plateInputSchema,
+          })
+          .strict()
+          .parse(body);
         const zoneId = uuid.parse(v.zoneId);
         const key = uuid.parse(body.idempotencyKey);
         const r = await db.rpc("reserve", {
@@ -247,6 +407,7 @@ async function handle(req: NextRequest) {
           p_destination: v.destinationId ?? null,
           p_preference: v.preference,
           p_key: key,
+          p_plate: v.plate,
         });
         fail(r.error);
         data = r.data;
@@ -288,7 +449,9 @@ async function handle(req: NextRequest) {
         fail(refreshed.error);
         let q = db
           .from("reservations")
-          .select("*,bays(label,zones(name,floor,malls(name)))")
+          .select(
+            "*,bays(label,zones:zones!bays_zone_id_fkey(name,floor,malls(name)))",
+          )
           .order("start_at", { ascending: false });
         if (!admin) q = q.eq("user_id", user.id);
         if (p[0] === "reservations" && p[1]) q = q.eq("id", uuid.parse(p[1]));
@@ -317,6 +480,16 @@ async function handle(req: NextRequest) {
     } else throw new Failure(404, "NOT_FOUND", "Unknown endpoint.");
     return NextResponse.json({ data });
   } catch (e) {
+    if (e instanceof SyntaxError)
+      return NextResponse.json(
+        {
+          error: {
+            code: "INVALID_JSON",
+            message: "Request body must be valid JSON.",
+          },
+        },
+        { status: 400 },
+      );
     if (e instanceof z.ZodError)
       return NextResponse.json(
         {

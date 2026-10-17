@@ -14,8 +14,8 @@ const stamp = (minutes: number) =>
   new Date(now + minutes * 60000).toISOString();
 describe("booking time rules", () => {
   it.each([
-    [60, 90, null],
-    [60, 89, "Minimum"],
+    [60, 120, null],
+    [60, 119, "Minimum"],
     [60, 540, null],
     [60, 541, "Maximum"],
     [0, 60, "future"],

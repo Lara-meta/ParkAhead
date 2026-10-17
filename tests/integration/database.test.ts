@@ -84,6 +84,7 @@ describe.skipIf(!enabled)("isolated LOCAL database integration", () => {
     await root.from("reservations").delete().eq("bay_id", bay);
     await root.from("bays").delete().eq("id", bay);
     await root.from("zones").delete().eq("id", zone);
+    await root.from("parking_floors").delete().eq("mall_id", mall);
     await root.from("malls").delete().eq("id", mall);
     if (uidA) await root.auth.admin.deleteUser(uidA);
     if (uidB) await root.auth.admin.deleteUser(uidB);
@@ -102,6 +103,7 @@ describe.skipIf(!enabled)("isolated LOCAL database integration", () => {
       p_destination: null,
       p_preference: "none",
       p_key: key,
+      p_plate: "TEST" + String(key).replaceAll("-", "").slice(0, 12),
     });
   it("handles races, exclusion ranges, idempotency, RLS and inactive bays", async () => {
     const key = crypto.randomUUID();
@@ -112,7 +114,9 @@ describe.skipIf(!enabled)("isolated LOCAL database integration", () => {
       .from("booking_events")
       .select("*")
       .eq("reservation_id", one.data.id);
-    expect(events.data).toHaveLength(1);
+    expect(
+      events.data?.filter((e) => e.event_type === "confirmed"),
+    ).toHaveLength(1);
     expect(
       (await reserve(a, key, s, new Date(Date.parse(e) + 60000).toISOString()))
         .error,
@@ -168,7 +172,7 @@ describe.skipIf(!enabled)("isolated LOCAL database integration", () => {
           b,
           crypto.randomUUID(),
           new Date(Date.parse(s) + 60000).toISOString(),
-          new Date(Date.parse(e) - 60000).toISOString(),
+          new Date(Date.parse(e) + 60000).toISOString(),
         )
       ).error?.code,
     ).toBe("23P01");

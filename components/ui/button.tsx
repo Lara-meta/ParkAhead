@@ -8,8 +8,10 @@ const variants = cva(
   {
     variants: {
       variant: {
-        default: "bg-emerald-800 text-white hover:bg-emerald-900 px-5 py-3",
-        outline: "border border-slate-200 bg-white text-slate-800 px-5 py-3",
+        default:
+          "bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-hover)] px-5 py-3",
+        outline:
+          "border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] px-5 py-3",
       },
     },
     defaultVariants: { variant: "default" },

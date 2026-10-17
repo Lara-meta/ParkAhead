@@ -9,7 +9,7 @@ export function UserVoice() {
       .catch(() => {});
   }, []);
   return (
-    <section className="panel bg-[#e9efdf]">
+    <section className="panel bg-[var(--surface-muted)]">
       <span className="eyebrow">
         Illustrative user statement — not a research interview
       </span>
